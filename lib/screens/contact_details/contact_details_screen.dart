@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:remind_me/core/constants/app_colors.dart';
-import 'package:remind_me/core/constants/message_style_options.dart';
 import 'package:remind_me/core/constants/app_spacing.dart';
+import 'package:remind_me/core/constants/message_template_catalog.dart';
 import 'package:remind_me/models/contact_date_event.dart';
 import 'package:remind_me/models/contact_details_args.dart';
 import 'package:remind_me/models/event_type.dart';
-import 'package:remind_me/models/message_preview_args.dart';
-import 'package:remind_me/screens/contact_details/message_preview_screen.dart';
+import 'package:remind_me/screens/greeting_cards/choose_greeting_card_screen.dart';
 import 'package:remind_me/services/storage_service.dart';
 import 'package:remind_me/widgets/app_card.dart';
 import 'package:remind_me/widgets/contact_action_button.dart';
@@ -190,7 +189,22 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
     required EventType eventType,
     required String firstName,
   }) async {
-    final styles = MessageStyleOptions.forEventType(eventType);
+    final section = switch (eventType) {
+      EventType.birthday => MessageTemplateSection.birthday,
+      EventType.anniversary => MessageTemplateSection.anniversary,
+      EventType.other => null,
+    };
+    if (section == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Greeting cards are available for birthdays and anniversaries only.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final styles = MessageTemplateCatalog.bySection(section);
     if (styles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -201,7 +215,7 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
       return;
     }
 
-    final selectedStyle = await showModalBottomSheet<MessageStyleOption>(
+    final selectedStyle = await showModalBottomSheet<MessageTemplateOption>(
       context: context,
       showDragHandle: true,
       backgroundColor: AppColors.surface,
@@ -237,7 +251,7 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
                     style: const TextStyle(fontSize: 22),
                   ),
                   title: Text(
-                    style.label,
+                    style.category,
                     style: GoogleFonts.poppins(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -259,21 +273,17 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
     if (!mounted || selectedStyle == null) return;
 
     final template = await StorageService.instance.getMessageTemplate(
-      selectedStyle.templateKey,
+      selectedStyle.key,
     );
     final generatedMessage = template.replaceAll('{name}', firstName);
     if (!mounted) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MessagePreviewScreen(
-          args: MessagePreviewArgs(
-            contact: widget.args.contact,
-            eventType: eventType,
-            styleLabel: selectedStyle.label,
-            templateKey: selectedStyle.templateKey,
-            initialMessage: generatedMessage,
-          ),
+        builder: (_) => ChooseGreetingCardScreen(
+          contact: widget.args.contact,
+          style: selectedStyle,
+          templateText: generatedMessage,
         ),
       ),
     );
