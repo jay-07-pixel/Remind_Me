@@ -174,8 +174,6 @@ class _MessagePreviewScreenState extends State<MessagePreviewScreen>
                           Expanded(
                             child: TextFormField(
                               controller: _messageController,
-                              minLines: 8,
-                              maxLines: null,
                               expands: true,
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
