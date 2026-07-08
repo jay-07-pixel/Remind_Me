@@ -61,6 +61,17 @@ class StorageService {
     await prefs.setBool(PreferenceKeys.isRegistered, true);
   }
 
+  Future<void> updateUserProfile({
+    required String name,
+    required String phone,
+    required String email,
+  }) async {
+    final prefs = await _preferences;
+    await prefs.setString(PreferenceKeys.name, name);
+    await prefs.setString(PreferenceKeys.phone, phone);
+    await prefs.setString(PreferenceKeys.email, email);
+  }
+
   Future<bool> isContactsSynced() async {
     final prefs = await _preferences;
     return prefs.getBool(PreferenceKeys.contactsSynced) ?? false;

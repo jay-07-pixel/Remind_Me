@@ -6,6 +6,7 @@ import 'package:remind_me/core/constants/app_spacing.dart';
 import 'package:remind_me/models/contact_date_event.dart';
 import 'package:remind_me/models/contact_details_args.dart';
 import 'package:remind_me/models/event_type.dart';
+import 'package:remind_me/services/whatsapp_service.dart';
 import 'package:remind_me/widgets/app_card.dart';
 import 'package:remind_me/widgets/contact_action_button.dart';
 import 'package:remind_me/widgets/contact_avatar.dart';
@@ -59,6 +60,12 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
         (birthday != null
             ? EventType.birthday
             : (anniversary != null ? EventType.anniversary : EventType.other));
+    final messageTemplate = _defaultMessageTemplate(primaryType);
+    final firstName = _firstName(contact.name);
+    final previewMessage = _resolveMessageTemplate(
+      template: messageTemplate,
+      firstName: firstName,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -125,10 +132,7 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
                 title: 'Message Preview',
                 children: [
                   _MessagePreviewCard(
-                    message: _defaultMessage(
-                      contact.name,
-                      primaryType,
-                    ),
+                    message: previewMessage,
                   ),
                 ],
               ),
@@ -141,7 +145,11 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
                       ContactActionButton(
                         icon: Icons.chat_rounded,
                         label: 'WhatsApp',
-                        onTap: () {},
+                        onTap: () => _onWhatsAppTap(
+                          rawPhoneNumber: contact.phone,
+                          messageTemplate: messageTemplate,
+                          firstName: firstName,
+                        ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       ContactActionButton(
@@ -172,6 +180,27 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _onWhatsAppTap({
+    required String? rawPhoneNumber,
+    required String messageTemplate,
+    required String firstName,
+  }) async {
+    final result = await WhatsAppService.instance.openChat(
+      rawPhoneNumber: rawPhoneNumber,
+      messageTemplate: messageTemplate,
+      firstName: firstName,
+    );
+
+    if (!mounted || result.isSuccess) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.errorMessage ?? 'Unable to open WhatsApp.'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -341,16 +370,28 @@ ContactDateEvent? _firstEvent(List<ContactDateEvent> events, EventType type) {
   return null;
 }
 
-String _defaultMessage(String fullName, EventType eventType) {
-  final firstName = fullName.trim().split(RegExp(r'\s+')).first;
+String _defaultMessageTemplate(EventType eventType) {
   return switch (eventType) {
     EventType.birthday =>
-      'Happy Birthday, $firstName! Wishing you a joyful day filled with happiness and beautiful moments.',
+      'Happy Birthday {name}! Wishing you a joyful day filled with happiness and beautiful moments.',
     EventType.anniversary =>
-      'Happy Anniversary, $firstName! Wishing you both love, laughter, and many more wonderful years together.',
+      'Happy Anniversary {name}! Wishing you both love, laughter, and many more wonderful years together.',
     EventType.other =>
-      'Hi $firstName, wishing you a wonderful day and many happy moments ahead.',
+      'Hi {name}, wishing you a wonderful day and many happy moments ahead.',
   };
+}
+
+String _resolveMessageTemplate({
+  required String template,
+  required String firstName,
+}) {
+  return template.replaceAll('{name}', firstName);
+}
+
+String _firstName(String fullName) {
+  final trimmed = fullName.trim();
+  if (trimmed.isEmpty) return 'there';
+  return trimmed.split(RegExp(r'\s+')).first;
 }
 
 String _initials(String name) {

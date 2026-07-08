@@ -7,6 +7,7 @@ import 'package:remind_me/screens/contact_details/contact_details_screen.dart';
 import 'package:remind_me/screens/home/home_screen.dart';
 import 'package:remind_me/screens/onboarding/onboarding_screen.dart';
 import 'package:remind_me/screens/permissions/permissions_screen.dart';
+import 'package:remind_me/screens/profile/profile_screen.dart';
 import 'package:remind_me/screens/registration/registration_screen.dart';
 import 'package:remind_me/screens/settings/settings_screen.dart';
 import 'package:remind_me/screens/splash/splash_screen.dart';
@@ -81,6 +82,14 @@ abstract final class AppRouter {
             child: ContactDetailsScreen(args: args),
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.myProfile,
+        name: 'myProfile',
+        pageBuilder: (context, state) => _buildPage(
+          state: state,
+          child: const ProfileScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.settings,

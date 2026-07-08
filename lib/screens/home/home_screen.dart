@@ -14,24 +14,32 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-
-  static const _tabs = [
-    HomeDashboard(),
-    ContactsScreen(),
-    SettingsTabScreen(),
-  ];
+  int _homeRefreshToken = 0;
 
   @override
   Widget build(BuildContext context) {
+    final tabs = [
+      HomeDashboard(refreshToken: _homeRefreshToken),
+      const ContactsScreen(),
+      const SettingsTabScreen(),
+    ];
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(
         index: _currentIndex,
-        children: _tabs,
+        children: tabs,
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() {
+            if (index == 0 && _currentIndex != 0) {
+              _homeRefreshToken++;
+            }
+            _currentIndex = index;
+          });
+        },
       ),
     );
   }

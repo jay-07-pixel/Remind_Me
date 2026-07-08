@@ -18,7 +18,12 @@ import 'package:remind_me/widgets/today_event_card.dart';
 import 'package:remind_me/widgets/upcoming_event_tile.dart';
 
 class HomeDashboard extends StatefulWidget {
-  const HomeDashboard({super.key});
+  const HomeDashboard({
+    super.key,
+    this.refreshToken = 0,
+  });
+
+  final int refreshToken;
 
   @override
   State<HomeDashboard> createState() => _HomeDashboardState();
@@ -48,6 +53,14 @@ class _HomeDashboardState extends State<HomeDashboard>
     );
     _loadDashboard();
     _animationController.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _loadDashboard();
+    }
   }
 
   Future<void> _loadDashboard() async {
