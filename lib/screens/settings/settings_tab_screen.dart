@@ -30,31 +30,62 @@ class SettingsTabScreen extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: Material(
                 color: Colors.transparent,
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.person_rounded,
-                    color: AppColors.primary,
-                  ),
-                  title: Text(
-                    'My Profile',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(
+                        Icons.person_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(
+                        'My Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'View and edit your details',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textTertiary,
+                      ),
+                      onTap: () => context.push(AppRoutes.myProfile),
                     ),
-                  ),
-                  subtitle: Text(
-                    'View and edit your details',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.edit_note_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(
+                        'Message Templates',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Customize birthday & anniversary messages',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textTertiary,
+                      ),
+                      onTap: () => context.push(AppRoutes.messageTemplates),
                     ),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.textTertiary,
-                  ),
-                  onTap: () => context.push(AppRoutes.myProfile),
+                  ],
                 ),
               ),
             ),

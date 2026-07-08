@@ -9,13 +9,11 @@ import 'package:remind_me/core/utils/greeting_utils.dart';
 import 'package:remind_me/models/contact_details_args.dart';
 import 'package:remind_me/models/contact_event.dart';
 import 'package:remind_me/models/contact_model.dart';
+import 'package:remind_me/models/event_type.dart';
 import 'package:remind_me/services/contact_service.dart';
 import 'package:remind_me/services/storage_service.dart';
 import 'package:remind_me/widgets/app_card.dart';
-import 'package:remind_me/widgets/dashboard_empty_state.dart';
-import 'package:remind_me/widgets/dashboard_section_header.dart';
-import 'package:remind_me/widgets/today_event_card.dart';
-import 'package:remind_me/widgets/upcoming_event_tile.dart';
+import 'package:remind_me/widgets/contact_avatar.dart';
 
 class HomeDashboard extends StatefulWidget {
   const HomeDashboard({
@@ -35,9 +33,10 @@ class _HomeDashboardState extends State<HomeDashboard>
   late final Animation<double> _fadeAnimation;
 
   String _userName = 'there';
-  List<ContactEvent> _todayEvents = const [];
-  List<ContactEvent> _upcomingEvents = const [];
+  List<ContactEvent> _allEvents = const [];
   Map<String, ContactModel> _contactsById = const {};
+  DashboardFilter _selectedFilter = DashboardFilter.all;
+  String _searchQuery = '';
   bool _isLoading = true;
 
   @override
@@ -65,8 +64,7 @@ class _HomeDashboardState extends State<HomeDashboard>
 
   Future<void> _loadDashboard() async {
     final name = await StorageService.instance.getName();
-    final todayEvents = await ContactService.instance.getTodayEvents();
-    final upcomingEvents = await ContactService.instance.getUpcomingEvents();
+    final allEvents = await ContactService.instance.getAllEvents();
     final contacts = await ContactService.instance.getStoredContacts();
     final byId = <String, ContactModel>{};
     for (final contact in contacts) {
@@ -76,11 +74,39 @@ class _HomeDashboardState extends State<HomeDashboard>
     if (!mounted) return;
     setState(() {
       _userName = GreetingUtils.firstName(name);
-      _todayEvents = todayEvents;
-      _upcomingEvents = upcomingEvents;
+      _allEvents = allEvents;
       _contactsById = byId;
       _isLoading = false;
     });
+  }
+
+  List<ContactEvent> get _filteredEvents {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final query = _searchQuery.trim().toLowerCase();
+
+    bool matchesFilter(ContactEvent event) {
+      return switch (_selectedFilter) {
+        DashboardFilter.all => true,
+        DashboardFilter.today =>
+          event.date.year == today.year &&
+              event.date.month == today.month &&
+              event.date.day == today.day,
+        DashboardFilter.birthdays => event.eventType == EventType.birthday,
+        DashboardFilter.anniversaries =>
+          event.eventType == EventType.anniversary,
+        DashboardFilter.upcoming => event.date.isAfter(today),
+      };
+    }
+
+    bool matchesQuery(ContactEvent event) {
+      if (query.isEmpty) return true;
+      return event.contactName.toLowerCase().contains(query);
+    }
+
+    return _allEvents
+        .where((event) => matchesFilter(event) && matchesQuery(event))
+        .toList();
   }
 
   Future<void> _openContactDetails(ContactEvent event) async {
@@ -107,6 +133,7 @@ class _HomeDashboardState extends State<HomeDashboard>
   Widget build(BuildContext context) {
     final todayLabel = DateFormat('EEEE, MMMM d').format(DateTime.now());
     final greeting = GreetingUtils.timeBasedGreeting();
+    final visibleEvents = _filteredEvents;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -128,7 +155,42 @@ class _HomeDashboardState extends State<HomeDashboard>
             ),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const DashboardSectionHeader(title: "Today's Events"),
+                _DashboardSearchBar(
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: DashboardFilter.values.map((filter) {
+                    final selected = filter == _selectedFilter;
+                    return ChoiceChip(
+                      label: Text(filter.label),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() => _selectedFilter = filter);
+                      },
+                      labelStyle: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? Colors.white
+                            : AppColors.textSecondary,
+                      ),
+                      selectedColor: AppColors.primary,
+                      backgroundColor: AppColors.surface,
+                      side: BorderSide(
+                        color: selected
+                            ? AppColors.primary
+                            : AppColors.border,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 if (_isLoading)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
@@ -136,46 +198,33 @@ class _HomeDashboardState extends State<HomeDashboard>
                       child: CircularProgressIndicator(color: AppColors.primary),
                     ),
                   )
-                else if (_todayEvents.isEmpty)
-                  const DashboardEmptyState(message: 'No events today')
                 else
-                  ...List.generate(_todayEvents.length, (index) {
-                    final event = _todayEvents[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == _todayEvents.length - 1
-                            ? AppSpacing.xl
-                            : AppSpacing.sm,
-                      ),
-                      child: TodayEventCard(
-                        event: event,
-                        index: index,
-                        onTap: () => _openContactDetails(event),
-                        onWish: () {},
-                      ),
-                    );
-                  }),
-                const DashboardSectionHeader(title: 'Upcoming Events'),
-                if (_isLoading)
-                  const SizedBox.shrink()
-                else if (_upcomingEvents.isEmpty)
-                  const DashboardEmptyState(
-                    message: 'No upcoming events',
-                    icon: Icons.upcoming_outlined,
-                  )
-                else
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: List.generate(_upcomingEvents.length, (index) {
-                        return UpcomingEventTile(
-                          event: _upcomingEvents[index],
-                          index: index,
-                          onTap: () => _openContactDetails(_upcomingEvents[index]),
-                          showDivider: index < _upcomingEvents.length - 1,
-                        );
-                      }),
-                    ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: visibleEvents.isEmpty
+                        ? const _SearchEmptyState(
+                            key: ValueKey('no-results'),
+                          )
+                        : Column(
+                            key: ValueKey('events-list'),
+                            children: List.generate(visibleEvents.length, (
+                              index,
+                            ) {
+                              final event = visibleEvents[index];
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: index == visibleEvents.length - 1
+                                      ? AppSpacing.md
+                                      : AppSpacing.sm,
+                                ),
+                                child: _DashboardEventCard(
+                                  event: event,
+                                  index: index,
+                                  onTap: () => _openContactDetails(event),
+                                ),
+                              );
+                            }),
+                          ),
                   ),
                 const SizedBox(height: AppSpacing.md),
               ]),
@@ -253,4 +302,177 @@ class _DashboardHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashboardSearchBar extends StatelessWidget {
+  const _DashboardSearchBar({
+    required this.onChanged,
+  });
+
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: 'Search contacts...',
+        prefixIcon: const Icon(Icons.search_rounded, size: 22),
+        suffixIcon: const Icon(
+          Icons.tune_rounded,
+          size: 20,
+          color: AppColors.textTertiary,
+        ),
+        filled: true,
+        fillColor: AppColors.surface,
+      ),
+      style: GoogleFonts.poppins(
+        fontSize: 15,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+}
+
+class _DashboardEventCard extends StatelessWidget {
+  const _DashboardEventCard({
+    required this.event,
+    required this.index,
+    required this.onTap,
+  });
+
+  final ContactEvent event;
+  final int index;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel = DateFormat('MMM d').format(event.date);
+
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          ContactAvatar(
+            initials: event.initials,
+            gradientIndex: index,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.contactName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Icon(
+                      event.eventType.icon,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        event.eventLabel,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              dateLabel,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchEmptyState extends StatelessWidget {
+  const _SearchEmptyState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xl,
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.12),
+                  AppColors.primaryLight.withValues(alpha: 0.06),
+                ],
+              ),
+            ),
+            child: const Icon(
+              Icons.search_off_rounded,
+              size: 40,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'No matching contacts found',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum DashboardFilter {
+  all('All'),
+  today("Today's Events"),
+  birthdays('Birthdays'),
+  anniversaries('Anniversaries'),
+  upcoming('Upcoming');
+
+  const DashboardFilter(this.label);
+  final String label;
 }

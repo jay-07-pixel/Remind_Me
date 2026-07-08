@@ -5,4 +5,5 @@ abstract final class PreferenceKeys {
   static const email = 'email';
   static const contactsSynced = 'contactsSynced';
   static const contactsData = 'contactsData';
+  static const messageTemplates = 'messageTemplates';
 }

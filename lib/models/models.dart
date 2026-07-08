@@ -3,5 +3,7 @@ export 'contact_details_args.dart';
 export 'contact_event.dart';
 export 'contact_model.dart';
 export 'event_type.dart';
+export 'message_template_editor_args.dart';
+export 'message_preview_args.dart';
 export 'onboarding_page.dart';
 export 'user_profile.dart';

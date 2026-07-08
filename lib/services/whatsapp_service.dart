@@ -11,17 +11,26 @@ class WhatsAppService {
     required String messageTemplate,
     required String firstName,
   }) async {
+    final message = _resolveMessage(
+      template: messageTemplate,
+      firstName: firstName,
+    );
+    return openChatWithMessage(
+      rawPhoneNumber: rawPhoneNumber,
+      message: message,
+    );
+  }
+
+  Future<WhatsAppLaunchResult> openChatWithMessage({
+    required String? rawPhoneNumber,
+    required String message,
+  }) async {
     final phone = _normalizePhone(rawPhoneNumber);
     if (phone == null) {
       return const WhatsAppLaunchResult.failure(
         'This contact does not have a valid phone number.',
       );
     }
-
-    final message = _resolveMessage(
-      template: messageTemplate,
-      firstName: firstName,
-    );
     final url = Uri.parse(
       'https://wa.me/$phone?text=${Uri.encodeComponent(message)}',
     );

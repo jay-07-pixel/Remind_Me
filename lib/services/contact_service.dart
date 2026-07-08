@@ -91,6 +91,14 @@ class ContactService {
     );
   }
 
+  Future<List<ContactEvent>> getAllEvents() async {
+    final contacts = await getStoredContacts();
+    return _buildAllEvents(
+      contacts: contacts,
+      reference: DateTime.now(),
+    );
+  }
+
   List<ContactEvent> _buildEvents({
     required List<ContactModel> contacts,
     required DateTime reference,
@@ -117,6 +125,30 @@ class ContactService {
             ),
           );
         }
+      }
+    }
+
+    events.sort((a, b) => a.date.compareTo(b.date));
+    return events;
+  }
+
+  List<ContactEvent> _buildAllEvents({
+    required List<ContactModel> contacts,
+    required DateTime reference,
+  }) {
+    final events = <ContactEvent>[];
+
+    for (final contact in contacts) {
+      for (final event in contact.events) {
+        events.add(
+          ContactEvent(
+            contactId: contact.id,
+            contactName: contact.name,
+            eventType: event.eventType,
+            date: DateEventUtils.nextOccurrence(event, reference),
+            customLabel: event.customLabel,
+          ),
+        );
       }
     }
 

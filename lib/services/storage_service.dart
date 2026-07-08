@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:remind_me/core/constants/message_template_catalog.dart';
 import 'package:remind_me/core/constants/preference_keys.dart';
 import 'package:remind_me/models/contact_model.dart';
 import 'package:remind_me/models/user_profile.dart';
@@ -103,6 +104,44 @@ class StorageService {
     final prefs = await _preferences;
     await prefs.remove(PreferenceKeys.contactsData);
     await prefs.setBool(PreferenceKeys.contactsSynced, false);
+  }
+
+  Future<Map<String, String>> getMessageTemplates() async {
+    final prefs = await _preferences;
+    final defaults = MessageTemplateCatalog.defaultTemplatesMap();
+    final raw = prefs.getString(PreferenceKeys.messageTemplates);
+    if (raw == null || raw.isEmpty) {
+      return defaults;
+    }
+
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    final stored = <String, String>{
+      for (final entry in decoded.entries)
+        entry.key: (entry.value as String?) ?? '',
+    };
+
+    return {
+      ...defaults,
+      ...stored,
+    };
+  }
+
+  Future<String> getMessageTemplate(String key) async {
+    final templates = await getMessageTemplates();
+    return templates[key] ?? '';
+  }
+
+  Future<void> saveMessageTemplate({
+    required String key,
+    required String template,
+  }) async {
+    final prefs = await _preferences;
+    final templates = await getMessageTemplates();
+    templates[key] = template;
+    await prefs.setString(
+      PreferenceKeys.messageTemplates,
+      jsonEncode(templates),
+    );
   }
 
   /// Development utility — clears all persisted app data so the

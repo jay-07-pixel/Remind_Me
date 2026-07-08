@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:remind_me/core/constants/app_colors.dart';
+import 'package:remind_me/core/constants/message_style_options.dart';
 import 'package:remind_me/core/constants/app_spacing.dart';
 import 'package:remind_me/models/contact_date_event.dart';
 import 'package:remind_me/models/contact_details_args.dart';
 import 'package:remind_me/models/event_type.dart';
-import 'package:remind_me/services/whatsapp_service.dart';
+import 'package:remind_me/models/message_preview_args.dart';
+import 'package:remind_me/screens/contact_details/message_preview_screen.dart';
+import 'package:remind_me/services/storage_service.dart';
 import 'package:remind_me/widgets/app_card.dart';
 import 'package:remind_me/widgets/contact_action_button.dart';
 import 'package:remind_me/widgets/contact_avatar.dart';
@@ -146,8 +149,7 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
                         icon: Icons.chat_rounded,
                         label: 'WhatsApp',
                         onTap: () => _onWhatsAppTap(
-                          rawPhoneNumber: contact.phone,
-                          messageTemplate: messageTemplate,
+                          eventType: primaryType,
                           firstName: firstName,
                         ),
                       ),
@@ -185,22 +187,94 @@ class _ContactDetailsScreenState extends State<ContactDetailsScreen>
   }
 
   Future<void> _onWhatsAppTap({
-    required String? rawPhoneNumber,
-    required String messageTemplate,
+    required EventType eventType,
     required String firstName,
   }) async {
-    final result = await WhatsAppService.instance.openChat(
-      rawPhoneNumber: rawPhoneNumber,
-      messageTemplate: messageTemplate,
-      firstName: firstName,
+    final styles = MessageStyleOptions.forEventType(eventType);
+    if (styles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No message styles available for this event type.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final selectedStyle = await showModalBottomSheet<MessageStyleOption>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose Message Style',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ...styles.map((style) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Text(
+                    style.emoji,
+                    style: const TextStyle(fontSize: 22),
+                  ),
+                  title: Text(
+                    style.label,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textTertiary,
+                  ),
+                  onTap: () => Navigator.of(context).pop(style),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
+    if (!mounted || selectedStyle == null) return;
 
-    if (!mounted || result.isSuccess) return;
+    final template = await StorageService.instance.getMessageTemplate(
+      selectedStyle.templateKey,
+    );
+    final generatedMessage = template.replaceAll('{name}', firstName);
+    if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.errorMessage ?? 'Unable to open WhatsApp.'),
-        behavior: SnackBarBehavior.floating,
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MessagePreviewScreen(
+          args: MessagePreviewArgs(
+            contact: widget.args.contact,
+            eventType: eventType,
+            styleLabel: selectedStyle.label,
+            templateKey: selectedStyle.templateKey,
+            initialMessage: generatedMessage,
+          ),
+        ),
       ),
     );
   }
